@@ -8,8 +8,13 @@ The National Clinical Trial (NCT) database represents a wealth of information (>
 We used CubNer (Zhang & Elhadad, 2013) to locate the disease and intervention mentions on the NCT free-text descriptions. The output of CubNer is string matched against custom vocabularies derived from the Observational Medical Outcomes Partnership (OMOP) ontology. DNorm (Leaman, Doğan & Lu, 2013) is also applied with the NCT free-text descriptions, and the returned structured identifiers are map to the names.
 
 Improvements for Disease Recognition in NCT Descriptions
-  46,049 total Clinical Trials gained 1 or more structured identifiers (avg 1.62 new identifiers per trial)
-  15,625 Clinical Trials with no corresponding MeSH term for disease description were annotated with 1 or more structured identifiers
+
+  - 46,049 total Clinical Trials gained 1 or more structured identifiers (avg 1.62 new identifiers per trial)
+
+  - 15,625 Clinical Trials with no corresponding MeSH term for disease description were annotated with 1 or more structured identifiers
+
 Improvements for Intervention Recognition in NCT Descriptions
-  21,405 total Clinical Trials gained 1 or more structured identifiers (avg 1.47 new identifiers per trial)
-  19,091 Clinical Trials with no corresponding MeSH term for intervention description were annotated with 1 or more structured identifiers
+
+  - 21,405 total Clinical Trials gained 1 or more structured identifiers (avg 1.47 new identifiers per trial)
+
+  - 19,091 Clinical Trials with no corresponding MeSH term for intervention description were annotated with 1 or more structured identifiers
