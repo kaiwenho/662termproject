@@ -25,6 +25,8 @@ Improvements for Intervention Recognition in NCT Descriptions
 ### Dataset
 The dataset, including the original data and the preprocessed data, can be downloaded from https://drive.google.com/file/d/1xAZhkLFo6T4fb_2W2Ii-3fDX3yOo4kwS/view?usp=sharing. The data file should be in the same directory of the Jupyter notebooks (Treatment_entity_extraction.ipynb and clean_data_and_reformat.ipynb). The README.txt contains the description for each data file.
 
+Files for building the OMOP ontology prior to running omop_ontology_builder_with_stats_for_nlp.rmd can be downloaded from https://drive.google.com/drive/folders/1iF8yZMv_PwmqSAYdQ3ADouxLdPHccL6L?usp=sharing. The data files, along with the Jupyter notebook data, should be in the same director as the .rmd file prior to running the script. 
+
 ### Run the data in CubNER
 The official website of CubNER is https://people.dbmi.columbia.edu/~szhang/ner.html. You may download the source code and setup CubNER in your PC by following its README.txt file.
 
