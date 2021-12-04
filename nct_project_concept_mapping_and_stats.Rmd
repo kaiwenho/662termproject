@@ -85,12 +85,70 @@ athena_relationships <- fread("/Users/michaelpatton/phd/thesis/thesis_data/2021_
   clean_names() %>%
   as_tibble()
 
+eq_paths <- athena_relationships %>%
+  filter(str_detect(relationship_id," eq|Maps to")) %>%
+  inner_join(
+    athena_concepts %>% select(concept_id, 
+                               concept_code,
+                               concept_name, 
+                               domain_id, 
+                              vocabulary_id, 
+                              concept_code), by = c("concept_id_1" = "concept_id")
+  ) %>%
+  mutate(
+    concept_name_1 = concept_name, 
+    concept_code_1 = concept_code,
+    domain_id_1 = domain_id, 
+    vocabulary_id_1 = vocabulary_id
+  ) %>%
+  select(
+    concept_id_1,
+    concept_name_1, 
+    concept_code_1, 
+    domain_id_1, 
+    vocabulary_id_1,
+    relationship_id, 
+    concept_id_2
+    ) %>%
+  distinct() %>%
+  inner_join(
+    athena_concepts %>% select(concept_id, 
+                               concept_code,
+                               concept_name, domain_id, 
+                              vocabulary_id, 
+                              concept_code), by = c("concept_id_2" = "concept_id")
+  ) %>%
+  mutate(
+    concept_name_2 = concept_name, 
+    concept_code_2 = concept_code,
+    domain_id_2 = domain_id, 
+    vocabulary_id_2 = vocabulary_id
+  ) %>%
+  select(
+    concept_id_1, 
+    concept_name_1, 
+    concept_code_1,
+    domain_id_1, 
+    vocabulary_id_1,
+    relationship_id, 
+    concept_id_2, 
+    concept_name_2, 
+    concept_code_2,
+    domain_id_2,
+    vocabulary_id_2
+  ) %>%
+  distinct()
+  
+  
+
 athena_synonym <- fread("/Users/michaelpatton/phd/thesis/thesis_data/2021_09_21_athena_vocab_donwload/CONCEPT_SYNONYM.csv", 
                         sep = "\t", 
                         stringsAsFactors = F, 
                         quote="") %>%
   clean_names() %>%
   as_tibble()
+
+
 
 athena_ancestor <- fread("/Users/michaelpatton/phd/thesis/thesis_data/2021_09_21_athena_vocab_donwload/CONCEPT_ANCESTOR.csv", 
                          sep = "\t", 
@@ -325,6 +383,8 @@ treatment_terms_kwh <- fread("/Users/michaelpatton/phd/phd_classes/info_795_natu
 
 Disease Term String Matching
   - disease_terms_kwh
+  Output 
+    - disease_synonyms_after_match
 ```{r}
 
 disease_term_to_lower <- disease_terms_kwh %>%
@@ -375,50 +435,198 @@ disease_terms_kwh_comb_submitted_terms <- bind_rows(disease_terms_kwh, submitted
   arrange(nct_id)
   
 disease_exact_matching <- disease_terms_kwh_comb_submitted_terms %>%
-  left_join(
-    exact_match_disease_term_to_athena %>% select(lower_concept_name, domain_id, concept_id, vocabulary_id, concept_code),
-    by = c("disease" = "lower_concept_name"), 
+  inner_join(
+    exact_match_disease_term_to_athena %>% select(
+      lower_concept_name,
+      domain_id,
+      concept_id,
+      vocabulary_id,
+      concept_code
+    ),
+    by = c("disease" = "lower_concept_name"),
     keep = T
   ) %>%
+  filter(
+    domain_id %notin% c(
+      "Geography",
+      "Visit",
+      "Episode",
+      "Gender",
+      "Unit",
+      "Race",
+      "Cost",
+      "Drug",
+      "Provider",
+      "Payer",
+      "Relationship",
+      "Type Concept",
+      "Procedure",
+      "Device"
+    )
+  ) %>%
   group_by(nct_id) %>%
-  mutate(
-    n_distinct_concepts_exact_matched = n_distinct(lower_concept_name) - 1
-    ) %>%
+  mutate(n_distinct_concepts_exact_matched = n_distinct(lower_concept_name)) %>%
   ungroup() %>%
   distinct()
 
-disease_exact_matching_filter_domain <- disease_exact_matching %>%
-  filter(
-    domain_id %notin% c("Geography", "Visit", "Episode", "Gender", "Unit", "Race", "Cost", 
-                        "Drug", "Provider", "Payer", "Relationship", "Type Concept", "Procedure", 
-                        "Device"))
+
+disease_synonyms_after_match <- disease_exact_matching %>%
+  inner_join(
+    eq_paths, 
+    by = c("concept_id" = "concept_id_1")
+  ) %>%
+  group_by(nct_id) %>%
+  mutate(n_distinct_synonyms_from_exact_matched = n_distinct(concept_name_2)) %>%
+  ungroup() %>%
+  distinct()
     
 
-disease_exact_matching_stats <- disease_exact_matching %>%
-  select(
-    nct_id, 
-    n_distinct_concepts_exact_matched
-  ) %>%
-  distinct()
-
-
-disease_exact_matching_ls_cols <- disease_exact_matching %>%
-  mutate(
-    combined_code = paste(vocabulary_id,concept_code, sep= ":")
-  ) %>%
-  ungroup() %>%
-  distinct() %>%
+disease_exact_matching_stats <- disease_synonyms_after_match %>%
   select(
     nct_id, 
     n_distinct_concepts_exact_matched, 
-    combined_code
+    n_distinct_synonyms_from_exact_matched
   ) %>%
+  distinct()
+
+# 
+# disease_exact_matching_ls_cols <- disease_exact_matching %>%
+#   mutate(
+#     combined_code = paste(vocabulary_id,concept_code, sep= ":")
+#   ) %>%
+#   ungroup() %>%
+#   distinct() %>%
+#   select(
+#     nct_id, 
+#     n_distinct_concepts_exact_matched, 
+#     combined_code
+#   ) %>%
+#   group_by(nct_id) %>%
+#   mutate(
+#     codes_matched = list(combined_code)
+#   ) %>%
+#   ungroup() %>%
+#   distinct() 
+# 
+
+```
+
+Combine Stats from with disease 
+  - comb_submitted_and_parsed_mesh_terms
+```{r}
+
+conditions_with_stats_and_data <- comb_submitted_and_parsed_mesh_terms %>%
+  select(
+    nct_id, 
+    n_distinct_submitted_strings,
+    n_distinct_acct_parsed_strings
+  ) %>%
+  distinct() %>%
+  inner_join(
+    disease_synonyms_after_match,
+    by = "nct_id", 
+    keep = T
+  ) %>%
+  distinct() %>%
+  mutate(
+    n_distinct_acct_parsed_strings = 
+      ifelse(
+        is.na(n_distinct_acct_parsed_strings), 
+        0, 
+        n_distinct_acct_parsed_strings
+      )
+  )
+
+conditions_with_stats_and_data$vocabulary_id %>% unique()
+
+conditions_with_stats <- comb_submitted_and_parsed_mesh_terms %>%
+  select(
+    nct_id, 
+    n_distinct_submitted_strings,
+    n_distinct_acct_parsed_strings
+  ) %>%
+  distinct() %>%
+  inner_join(
+    disease_synonyms_after_match %>% select(nct_id, n_distinct_concepts_exact_matched, n_distinct_synonyms_from_exact_matched),
+    by = "nct_id"
+  ) %>%
+  distinct() %>%
+  mutate(
+    n_distinct_acct_parsed_strings = 
+      ifelse(
+        is.na(n_distinct_acct_parsed_strings), 
+        0, 
+        n_distinct_acct_parsed_strings
+      )
+  )
+
+conditions_with_stats
+
+
+improvement_of_mapping_conditions_with_stats <- conditions_with_stats %>%
   group_by(nct_id) %>%
   mutate(
-    codes_matched = list(combined_code)
+    diff_acct_kwp = 
+    n_distinct_concepts_exact_matched - n_distinct_acct_parsed_strings, 
+    diff_acct_kwp_with_synonyms = 
+      (n_distinct_concepts_exact_matched + n_distinct_synonyms_from_exact_matched) - n_distinct_acct_parsed_strings
   ) %>%
   ungroup() %>%
   distinct() 
+
+# 46049
+improvement_of_mapping_conditions_with_stats_better$nct_id %>% unique() %>% length()
+
+improvement_of_mapping_conditions_with_stats_better <- improvement_of_mapping_conditions_with_stats %>%
+  filter(
+    diff_acct_kwp > 0
+  )
+
+# 1.40
+improvement_of_mapping_conditions_with_stats_better %>%
+  summarise(
+    mean(diff_acct_kwp)
+  )
+
+improvement_of_mapping_conditions_with_stats_better_synonyms <- improvement_of_mapping_conditions_with_stats %>%
+  filter(
+    diff_acct_kwp_with_synonyms > 0
+  )
+
+#2.39
+improvement_of_mapping_conditions_with_stats_better_synonyms %>%
+  summarise(
+    mean(diff_acct_kwp_with_synonyms)
+  )
+
+
+acct_0_parse_kwp_better_conditions_with_stats<- conditions_with_stats %>%
+  filter(
+    n_distinct_acct_parsed_strings == 0 & 
+      n_distinct_concepts_exact_matched > 0
+  ) %>%
+  distinct()
+
+#15625
+acct_0_parse_kwp_better_conditions_with_stats$nct_id %>% unique() %>% length()
+
+
+
+```
+
+Extract Example Improvements for Conditions/Diseases
+```{r}
+
+example_nash <- conditions_with_stats_and_data %>%
+  filter(
+    str_detect(disease, "nash|non-alcoholic")
+  )
+
+example_nash <- treatment_exact_matching %>%
+  filter(
+    str_detect(disease, "nash|non-alcoholic")
+  )
+
 
 
 ```
@@ -455,11 +663,11 @@ exact_match_treatment_term_to_athena <- clean_athena_concepts %>%
 
 intervention_submitted_terms <- interventions_comb_submitted_and_parsed_mesh_terms %>% 
   mutate(
-    intervention = submitted_mesh_string_name_lower
+    treatment = submitted_mesh_string_name_lower
   ) %>%
   select(
     nct_id, 
-    intervention
+    treatment
   ) %>%
   distinct()
 
@@ -468,132 +676,70 @@ intervention_terms_from_kaiwen_comb_submitted_terms <- bind_rows(treatment_terms
   arrange(nct_id)
   
 
-treatment_exact_matching <- intervention_terms_from_kaiwen_comb_submitted_terms %>%
-  left_join(
-    exact_match_treatment_term_to_athena %>% select(lower_concept_name, domain_id, concept_id, vocabulary_id, concept_code),
-    by = c("treatment" = "lower_concept_name"), 
+treatment_exact_matching <-
+  intervention_terms_from_kaiwen_comb_submitted_terms %>%
+  inner_join(
+    exact_match_treatment_term_to_athena %>% select(
+      lower_concept_name,
+      domain_id,
+      concept_id,
+      vocabulary_id,
+      concept_code
+    ),
+    by = c("treatment" = "lower_concept_name"),
     keep = T
   ) %>%
-  group_by(nct_id) %>%
-  mutate(
-    n_distinct_concepts_exact_matched = n_distinct(lower_concept_name) - 1
+  filter(
+    domain_id %notin% c(
+      "Geography",
+      "Visit",
+      "Episode",
+      "Gender",
+      "Unit",
+      "Race",
+      "Cost",
+      "Provider",
+      "Payer",
+      "Relationship",
+      "Type Concept"
+    )
   ) %>%
+  group_by(nct_id) %>%
+  mutate(n_distinct_concepts_exact_matched = n_distinct(lower_concept_name)) %>%
   ungroup() %>%
   distinct()
 
 treatment_exact_matching$domain_id %>% unique() 
 
-intervention_exact_matching_filter_domain <- treatment_exact_matching %>%
-  filter(
-    domain_id %notin% c("Geography", "Visit", "Episode", "Gender", "Unit", "Race", "Cost", 
-                         "Provider", "Payer", "Relationship", "Type Concept"
-                        ))
 
-treatment_exact_matching_stats <- treatment_exact_matching %>%
-  select(
-    nct_id, 
-    n_distinct_concepts_exact_matched
-  ) %>%
-  distinct()
-
-
-
-```
-
-
-
-Combine Stats from with disease 
-  - comb_submitted_and_parsed_mesh_terms
-```{r}
-
-conditions_with_stats_and_data <- comb_submitted_and_parsed_mesh_terms %>%
-  select(
-    nct_id, 
-    n_distinct_submitted_strings,
-    n_distinct_acct_parsed_strings
-  ) %>%
-  distinct() %>%
+treatment_synonyms_after_match <- treatment_exact_matching %>%
   inner_join(
-    disease_exact_matching_filter_domain,
-    by = "nct_id", 
-    keep = T
+    eq_paths, 
+    by = c("concept_id" = "concept_id_1")
   ) %>%
-  distinct() %>%
-  mutate(
-    n_distinct_acct_parsed_strings = 
-      ifelse(
-        is.na(n_distinct_acct_parsed_strings), 
-        0, 
-        n_distinct_acct_parsed_strings
-      )
-  )
-
-conditions_with_stats <- comb_submitted_and_parsed_mesh_terms %>%
-  select(
-    nct_id, 
-    n_distinct_submitted_strings,
-    n_distinct_acct_parsed_strings
-  ) %>%
-  distinct() %>%
-  inner_join(
-    disease_exact_matching_filter_domain %>% select(nct_id, n_distinct_concepts_exact_matched),
-    by = "nct_id"
-  ) %>%
-  distinct() %>%
-  mutate(
-    n_distinct_acct_parsed_strings = 
-      ifelse(
-        is.na(n_distinct_acct_parsed_strings), 
-        0, 
-        n_distinct_acct_parsed_strings
-      )
-  )
-
-improvement_of_mapping_conditions_with_stats <- conditions_with_stats %>%
   group_by(nct_id) %>%
-  mutate(
-    diff_acct_kwp = 
-    n_distinct_concepts_exact_matched -n_distinct_acct_parsed_strings 
-  ) %>%
+  mutate(n_distinct_synonyms_from_exact_matched = n_distinct(concept_name_2)) %>%
   ungroup() %>%
-  distinct() 
+  distinct()
+    
 
-# 46179
-improvement_of_mapping_conditions_with_stats_better$nct_id %>% unique() %>% length()
-
-
-improvement_of_mapping_conditions_with_stats_better <- improvement_of_mapping_conditions_with_stats %>%
-  filter(
-    diff_acct_kwp > 0
-  )
-
-improvement_of_mapping_conditions_with_stats_better %>%
-  summarise(
-    mean(diff_acct_kwp)
-  )
-
-# 46179
-improvement_of_mapping_conditions_with_stats_better$nct_id %>% unique() %>% length()
-
-
-acct_0_parse_kwp_better_conditions_with_stats<- conditions_with_stats %>%
-  filter(
-    n_distinct_acct_parsed_strings == 0 & 
-      n_distinct_concepts_exact_matched > 0
+treatment_exact_matching_stats <- treatment_synonyms_after_match %>%
+  select(
+    nct_id, 
+    n_distinct_concepts_exact_matched, 
+    n_distinct_synonyms_from_exact_matched
   ) %>%
   distinct()
-
-acct_0_parse_kwp_better_conditions_with_stats$nct_id %>% unique() %>% length()
 
 
 
 ```
-
-
 
 Combine Stats from with treatment
   - interventions_comb_submitted_and_parsed_mesh_terms
 ```{r}
+
+interventions_with_stats_and_data$vocabulary_id %>% unique()
 
 interventions_with_stats_and_data <- interventions_comb_submitted_and_parsed_mesh_terms %>%
   select(
@@ -603,10 +749,9 @@ interventions_with_stats_and_data <- interventions_comb_submitted_and_parsed_mes
   ) %>%
   distinct() %>%
   inner_join(
-    intervention_exact_matching_filter_domain,
-    #disease_exact_matching %>% select(nct_id, n_distinct_concepts_exact_matched),
-    by = "nct_id", 
-    keep = T
+    treatment_synonyms_after_match,
+    by = c("nct_id" = "nct_id")
+    #keep = T
   ) %>%
   distinct() %>%
   mutate(
@@ -626,8 +771,7 @@ interventions_with_stats <- interventions_comb_submitted_and_parsed_mesh_terms %
   ) %>%
   distinct() %>%
   inner_join(
-    intervention_exact_matching_filter_domain %>% select(nct_id, n_distinct_concepts_exact_matched),
-    #disease_exact_matching %>% select(nct_id, n_distinct_concepts_exact_matched),
+    treatment_synonyms_after_match %>%select(nct_id, n_distinct_concepts_exact_matched,n_distinct_synonyms_from_exact_matched),
     by = "nct_id"
   ) %>%
   distinct() %>%
@@ -644,7 +788,9 @@ improvement_of_mapping_interventions_with_stats <- interventions_with_stats %>%
   group_by(nct_id) %>%
   mutate(
     diff_acct_kwp = 
-    n_distinct_concepts_exact_matched -n_distinct_acct_parsed_strings 
+    n_distinct_concepts_exact_matched -n_distinct_acct_parsed_strings, 
+    diff_acct_kwp_with_synonyms = 
+      (n_distinct_concepts_exact_matched + n_distinct_synonyms_from_exact_matched) - n_distinct_acct_parsed_strings
   ) %>%
   ungroup() %>%
   distinct() 
@@ -654,8 +800,26 @@ improvement_of_mapping_interventions_with_stats_better <- improvement_of_mapping
     diff_acct_kwp > 0
   )
 
-# 21014
+# 84490
 improvement_of_mapping_interventions_with_stats_better$nct_id %>% unique() %>% length()
+
+# 1.32
+improvement_of_mapping_interventions_with_stats_better %>%
+  summarise(
+  avg = sum(diff_acct_kwp) / n_distinct(nct_id) 
+  )
+
+improvement_of_mapping_interventions_with_stats_better_synonyms <- improvement_of_mapping_interventions_with_stats %>%
+  filter(
+    diff_acct_kwp_with_synonyms > 0
+  )
+
+#6.43
+improvement_of_mapping_interventions_with_stats_better_synonyms %>%
+  summarise(
+    mean(diff_acct_kwp_with_synonyms)
+  )
+
 
 improvement_of_mapping_interventions_with_stats_better %>%
   summarise(
@@ -672,9 +836,8 @@ acct_0_parse_kwp_better_interventions_with_stats<- interventions_with_stats %>%
   ) %>%
   distinct()
 
-#19091
+#59383
 acct_0_parse_kwp_better_interventions_with_stats$nct_id %>% unique() %>% length()
-
 
 
 ```
