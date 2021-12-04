@@ -22,7 +22,7 @@ Improvements for Intervention Recognition in NCT Descriptions
 - Concept synonymization of new intervention annotations produced an average of 6.43 synonyms per NCT entry
 
 
-### Dataset
+### Datasets
 The dataset, including the original data and the preprocessed data, can be downloaded from https://drive.google.com/file/d/1xAZhkLFo6T4fb_2W2Ii-3fDX3yOo4kwS/view?usp=sharing. The data file should be in the same directory of the Jupyter notebooks (Treatment_entity_extraction.ipynb and clean_data_and_reformat.ipynb). The README.txt contains the description for each data file.
 
 Files for building the OMOP ontology prior to running omop_ontology_builder_with_stats_for_nlp.rmd can be downloaded from https://drive.google.com/drive/folders/1iF8yZMv_PwmqSAYdQ3ADouxLdPHccL6L?usp=sharing. The data files, along with the Jupyter notebook data, should be in the same director as the .rmd file prior to running the script. 
@@ -48,3 +48,6 @@ Before running any command line, please move the file PubTator_cleaned_des.tsv f
   `./ApplyDNorm.sh config/banner_NCBIDisease_UMLS2013AA_TEST.xml data/CTD_diseases.tsv output/simmatrix_NCBIDisease_e4.bin AB3P_DIR TEMP PubTator_cleaned_des.tsv PubTator_cleaned_des_out.txt`
 
 The returned file is called PubTator_cleaned_des_out.txt in the DNorm directory after the above command line finishing running. 
+
+### Run OMOP ontology builder and evaluate statistics of CubNER and DNorm output on NCT database files
+To run omop_ontology_builder_with_stats_for_nlp.rmd, either download R version > 4.0 and run at the command line or load Rstudio and run the file following the instructions outlined Datasets. The script will build an concept normalization path using the OMOP datafiles and string match the output of CubNER and DNorm to structured vocabularies within OMOP. Next the script will print statistics for number of NCT trials without annotations that have been populated as a result of the CubNER and DNorm processing. Additionally, the script will show the number of new synonyms per NCT trial added as a result of the Cubner and DNorm processing. 
